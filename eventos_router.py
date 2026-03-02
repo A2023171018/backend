@@ -106,16 +106,6 @@ async def delete_evento(id_event: int):
     db.close()
     return {"success": True}
 
-@router.get("/edificios")
-async def get_edificios():
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
-    cursor.execute("SELECT id_building, name_building FROM edificios ORDER BY id_building ASC")
-    data = cursor.fetchall()
-    cursor.close()
-    db.close()
-    return data
-
 @router.get("/profesores")
 async def get_profesores():
     db = get_db_connection()

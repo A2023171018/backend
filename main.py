@@ -5,7 +5,9 @@ from models import LoginRequest, RegisterRequest, LoginResponse, UserResponse
 from database import get_db_connection
 from eventos_router import router as eventos_router
 from usuarios_router import router as usuarios_router
-from dashboard_router import router as dashboard_router  # ✅ Agregar
+from dashboard_router import router as dashboard_router
+from edificios_router import router as edificios_router
+from divisiones_router import router as divisiones_router  # ✅ Agregar
 
 from security import (
     verify_password,
@@ -17,7 +19,9 @@ app = FastAPI()
 
 app.include_router(eventos_router)
 app.include_router(usuarios_router)
-app.include_router(dashboard_router)  # ✅ Agregar
+app.include_router(dashboard_router)
+app.include_router(edificios_router)
+app.include_router(divisiones_router)  # ✅ Agregar
 
 app.add_middleware(
     CORSMiddleware,

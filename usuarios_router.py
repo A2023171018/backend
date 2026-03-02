@@ -99,7 +99,20 @@ async def delete_usuario(id_user: int):
     db = get_db_connection()
     if not db:
         raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
-    cursor = db.cursor()
+    cursor = db.cursor(dictionary=True)
+
+    # Verificar si el usuario existe y obtener su rol y nombre
+    cursor.execute("SELECT id_rol, name_user FROM usuarios WHERE id_user = %s", (id_user,))
+    usuario = cursor.fetchone()
+
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    # Si es profesor (id_rol = 3), eliminarlo también de la tabla profesor
+    if usuario["id_rol"] == 3:
+        cursor.execute("DELETE FROM profesor WHERE nombre_profe = %s", (usuario["name_user"],))
+        db.commit()
+
     cursor.execute("DELETE FROM usuarios WHERE id_user = %s", (id_user,))
     db.commit()
     cursor.close()
@@ -176,7 +189,7 @@ async def get_divisiones():
     return data
 
 # ============================
-# 📋 GET EDIFICIOS
+# 📋 GET EDIFICIOS LIST
 # ============================
 @router.get("/edificios-list")
 async def get_edificios_list():
