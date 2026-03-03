@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from db_supabase import get_supabase_client
+from app.config import get_supabase_client
 from pydantic import BaseModel
 from typing import Optional
 
