@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 from app.models.models import LoginRequest, RegisterRequest, LoginResponse, UserResponse, ResetPasswordRequest
 from app.config import get_supabase_client
@@ -14,44 +15,56 @@ from app.routers.horarios_router import router as horarios_router
 
 app = FastAPI()
 
+# ================================================
+# 1. CORS — SIEMPRE primero, antes de todo
+# ================================================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],        # desarrollo: permite todo
+    allow_credentials=False,    # debe ser False cuando allow_origins=["*"]
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=86400,
+)
+
 # ============================
-# 🚀 STARTUP EVENT - Probar conexión
+# 2. STARTUP EVENT
 # ============================
 @app.on_event("startup")
 async def startup_event():
     print("\n" + "="*50)
-    print("🚀 Iniciando servidor FastAPI...")
+    print("Iniciando servidor FastAPI...")
     print("="*50)
     try:
         supabase = get_supabase_client()
-        # Hacer una consulta simple para verificar conexión
         supabase.table("usuarios").select("id_user", count="exact").limit(1).execute()
-        print("✅ Servidor iniciado correctamente")
-        print("📍 Documentación: http://localhost:8000/docs")
+        print("Servidor iniciado correctamente")
+        print("Documentacion: http://localhost:8000/docs")
         print("="*50 + "\n")
     except Exception as e:
-        print(f"❌ Error al conectar con Supabase: {str(e)}")
-        print("⚠️  Verifica tu archivo .env")
+        print(f"Error al conectar con Supabase: {str(e)}")
+        print("Verifica tu archivo .env")
         print("="*50 + "\n")
 
-app.include_router(eventos_router)
-app.include_router(usuarios_router)
-app.include_router(dashboard_router)
-app.include_router(edificios_router)
-app.include_router(divisiones_router)
-app.include_router(asistencias_router)
-app.include_router(horarios_router)
+# ============================
+# 3. TEST endpoints (para debug)
+# ============================
+@app.get("/test")
+async def test():
+    return {"ok": True, "message": "Servidor funcionando correctamente"}
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+@app.get("/test-db")
+async def test_db():
+    try:
+        supabase = get_supabase_client()
+        result = supabase.table("usuarios").select("id_user").limit(1).execute()
+        return {"ok": True, "supabase": "conectado", "data": result.data}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 # ============================
-# 🔑 LOGIN con Supabase Auth
+# 4. LOGIN
 # ============================
 @app.post("/login", response_model=LoginResponse)
 async def login(credentials: LoginRequest):
@@ -60,9 +73,7 @@ async def login(credentials: LoginRequest):
             email=credentials.email_user,
             password=credentials.pass_user
         )
-        
         user_data = result["user_data"]
-        
         return LoginResponse(
             success=True,
             message="Login exitoso",
@@ -85,21 +96,18 @@ async def login(credentials: LoginRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-
 # ============================
-# 📝 REGISTER con Supabase Auth
+# 5. REGISTER
 # ============================
 @app.post("/register")
 async def register(user_data: RegisterRequest):
     try:
-        # Validar contraseña antes de enviar a Supabase
         from app.utils.security import validate_password
         try:
             validate_password(user_data.pass_user)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-        
-        # Registrar con Supabase Auth
+
         result = await AuthService.sign_up(
             email=user_data.email_user,
             password=user_data.pass_user,
@@ -109,7 +117,6 @@ async def register(user_data: RegisterRequest):
                 "id_rol": user_data.id_rol
             }
         )
-        
         return {
             "success": True,
             "message": "Usuario registrado correctamente. Revisa tu email para verificar tu cuenta."
@@ -119,9 +126,8 @@ async def register(user_data: RegisterRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-
 # ============================
-# 🔄 RESET PASSWORD
+# 6. RESET PASSWORD
 # ============================
 @app.post("/reset-password")
 async def reset_password(data: ResetPasswordRequest):
@@ -133,9 +139,8 @@ async def reset_password(data: ResetPasswordRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-
 # ============================
-# 🚪 LOGOUT
+# 7. LOGOUT
 # ============================
 @app.post("/logout")
 async def logout():
@@ -147,9 +152,35 @@ async def logout():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
+# ================================================
+# 8. ROUTERS
+# ================================================
+app.include_router(eventos_router)
+app.include_router(usuarios_router)
+app.include_router(dashboard_router)
+app.include_router(edificios_router)
+app.include_router(divisiones_router)
+app.include_router(asistencias_router)
+app.include_router(horarios_router)
+
+# ================================================
+# 9. OPTIONS catch-all — SIEMPRE al final
+# ================================================
+@app.options("/{full_path:path}")
+async def catch_all_options(full_path: str, request: Request):
+    print(f"OPTIONS recibida: /{full_path}")
+    return Response(
+        status_code=204,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, Origin, X-Requested-With",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
 
 # ============================
-# 🚀 Run local
+# Run local
 # ============================
 if __name__ == "__main__":
     import uvicorn
