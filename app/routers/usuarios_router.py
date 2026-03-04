@@ -1,3 +1,4 @@
+from uuid import UUID
 from fastapi import APIRouter, HTTPException
 from app.config import get_supabase_client
 from pydantic import BaseModel
@@ -6,7 +7,7 @@ from typing import Optional
 router = APIRouter()
 
 class UsuarioResponse(BaseModel):
-    id_user: int
+    id_user: UUID
     name_user: str
     email_user: str
     matricula_user: Optional[int] = None
@@ -86,7 +87,7 @@ async def get_usuarios():
 # ✏️ UPDATE USUARIO
 # ============================
 @router.put("/usuarios/{id_user}")
-async def update_usuario(id_user: int, data: UsuarioUpdate):
+async def update_usuario(id_user: UUID, data: UsuarioUpdate):
     try:
         supabase = get_supabase_client()
         update_data = {}
@@ -111,7 +112,7 @@ async def update_usuario(id_user: int, data: UsuarioUpdate):
 # 🗑️ DELETE USUARIO
 # ============================
 @router.delete("/usuarios/{id_user}")
-async def delete_usuario(id_user: int):
+async def delete_usuario(id_user: UUID):
     try:
         supabase = get_supabase_client()
         
@@ -138,7 +139,7 @@ async def delete_usuario(id_user: int):
 # 🔄 TOGGLE ROL
 # ============================
 @router.patch("/usuarios/{id_user}/toggle-rol")
-async def toggle_rol(id_user: int):
+async def toggle_rol(id_user: UUID):
     try:
         supabase = get_supabase_client()
         response = supabase.table("usuarios").select("id_rol").eq("id_user", id_user).execute()

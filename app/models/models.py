@@ -139,3 +139,16 @@ class HorarioProfesorResponse(HorarioProfesorBase):
 
     class Config:
         from_attributes = True
+# ============================
+# 🔐 OAuth Models
+# ============================
+class OAuthSyncRequest(BaseModel):
+    id_user: str  # UUID de Supabase Auth
+    email_user: EmailStr
+    name_user: str
+    provider: str  # 'google', 'github', etc.
+
+class OAuthSyncResponse(BaseModel):
+    success: bool
+    message: str
+    user: Optional[dict] = None

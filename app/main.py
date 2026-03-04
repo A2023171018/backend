@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.models.models import LoginRequest, RegisterRequest, LoginResponse, UserResponse, ResetPasswordRequest
+from app.models.models import LoginRequest, RegisterRequest, LoginResponse, UserResponse, ResetPasswordRequest, OAuthSyncRequest
 from app.config import get_supabase_client
 from app.services.auth_service import AuthService
 from app.routers.eventos_router import router as eventos_router
@@ -149,7 +149,91 @@ async def logout():
 
 
 # ============================
-# 🚀 Run local
+# � OAUTH SYNC
+# ============================
+@app.post("/auth/oauth/sync")
+async def oauth_sync(data: OAuthSyncRequest):
+    """
+    Sincroniza un usuario autenticado con OAuth (Google, etc.) con la tabla usuarios.
+    Si el usuario no existe, lo crea. Si existe, retorna sus datos.
+    """
+    try:
+        print(f"[OAuth Sync] Recibiendo solicitud para usuario: {data.email_user}")
+        print(f"[OAuth Sync] ID: {data.id_user}, Provider: {data.provider}")
+        
+        supabase = get_supabase_client()
+        
+        # Verificar si el usuario ya existe en la tabla usuarios
+        print(f"[OAuth Sync] Verificando si usuario existe en tabla usuarios...")
+        result = supabase.table("usuarios").select("*").eq("id_user", data.id_user).execute()
+        print(f"[OAuth Sync] Resultado de búsqueda: {len(result.data) if result.data else 0} usuarios encontrados")
+        
+        if result.data and len(result.data) > 0:
+            # Usuario ya existe, obtener sus datos con el nombre del rol
+            user_data = result.data[0]
+            
+            # Obtener nombre del rol
+            rol_result = supabase.table("rol").select("name_rol").eq("id_rol", user_data["id_rol"]).execute()
+            rol_name = rol_result.data[0]["name_rol"] if rol_result.data else "Usuario"
+            
+            return {
+                "success": True,
+                "message": "Usuario autenticado correctamente",
+                "user": {
+                    "id_user": user_data["id_user"],
+                    "name_user": user_data["name_user"],
+                    "email_user": user_data["email_user"],
+                    "matricula_user": user_data.get("matricula_user", 0),
+                    "id_rol": user_data["id_rol"],
+                    "rol": rol_name
+                }
+            }
+        else:
+            # Usuario no existe, crear uno nuevo
+            # Por defecto, los usuarios de OAuth son "Usuario" (id_rol = 2)
+            print(f"[OAuth Sync] Usuario no existe, creando nuevo usuario...")
+            new_user = {
+                "id_user": data.id_user,  # UUID de Supabase Auth
+                "name_user": data.name_user,
+                "email_user": data.email_user,
+                "pass_user": None,  # NULL para usuarios OAuth
+                "matricula_user": 0,  # Los usuarios OAuth no tienen matrícula inicialmente
+                "id_rol": 2  # Rol "Usuario" por defecto
+            }
+            
+            print(f"[OAuth Sync] Datos a insertar: {new_user}")
+            insert_result = supabase.table("usuarios").insert(new_user).execute()
+            print(f"[OAuth Sync] Resultado de inserción: {insert_result.data}")
+            
+            if not insert_result.data:
+                error_msg = f"Error al crear usuario en la base de datos. Resultado: {insert_result}"
+                print(f"[OAuth Sync] ERROR: {error_msg}")
+                raise HTTPException(status_code=500, detail=error_msg)
+            
+            # Obtener nombre del rol
+            rol_result = supabase.table("rol").select("name_rol").eq("id_rol", 2).execute()
+            rol_name = rol_result.data[0]["name_rol"] if rol_result.data else "Usuario"
+            
+            return {
+                "success": True,
+                "message": "Usuario creado y autenticado correctamente",
+                "user": {
+                    "id_user": data.id_user,
+                    "name_user": data.name_user,
+                    "email_user": data.email_user,
+                    "matricula_user": 0,
+                    "id_rol": 2,
+                    "rol": rol_name
+                }
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en sincronización OAuth: {str(e)}")
+
+
+# ============================
+# �🚀 Run local
 # ============================
 if __name__ == "__main__":
     import uvicorn

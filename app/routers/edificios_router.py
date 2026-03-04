@@ -7,6 +7,7 @@ router = APIRouter()
 
 class EdificioCreate(BaseModel):
     name_building: str
+    descrip_building: Optional[str] = None
     code_building: Optional[str] = None
     imagen_url: Optional[str] = None
     lat_building: float
@@ -15,6 +16,7 @@ class EdificioCreate(BaseModel):
 
 class EdificioUpdate(BaseModel):
     name_building: Optional[str] = None
+    descrip_building: Optional[str] = None
     code_building: Optional[str] = None
     imagen_url: Optional[str] = None
     lat_building: Optional[float] = None
@@ -26,7 +28,7 @@ async def get_edificios():
     try:
         supabase = get_supabase_client()
         response = supabase.table("edificios").select("""
-            id_building, name_building, code_building,
+            id_building, name_building, descrip_building, code_building,
             imagen_url, lat_building, lon_building, id_div,
             divisiones(name_div)
         """).order("id_building").execute()
@@ -37,6 +39,7 @@ async def get_edificios():
             edificio = {
                 "id_building": row["id_building"],
                 "name_building": row["name_building"],
+                "descrip_building": row.get("descrip_building"),
                 "code_building": row.get("code_building"),
                 "imagen_url": row.get("imagen_url"),
                 "lat_building": float(row["lat_building"]) if row.get("lat_building") else None,
@@ -56,6 +59,7 @@ async def create_edificio(data: EdificioCreate):
         supabase = get_supabase_client()
         edificio_data = {
             "name_building": data.name_building,
+            "descrip_building": data.descrip_building,
             "code_building": data.code_building,
             "imagen_url": data.imagen_url,
             "lat_building": data.lat_building,
@@ -74,6 +78,8 @@ async def update_edificio(id_building: int, data: EdificioUpdate):
         update_data = {}
         if data.name_building is not None:
             update_data["name_building"] = data.name_building
+        if data.descrip_building is not None:
+            update_data["descrip_building"] = data.descrip_building
         if data.code_building is not None:
             update_data["code_building"] = data.code_building
         if data.imagen_url is not None:
