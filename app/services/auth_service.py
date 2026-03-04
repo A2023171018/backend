@@ -205,3 +205,95 @@ class AuthService:
                 status_code=401,
                 detail=f"Error al obtener usuario: {str(e)}"
             )
+    
+    @staticmethod
+    async def sync_oauth_user(id_user: str, email_user: str, name_user: str, provider: str) -> dict:
+        """
+        Sincroniza un usuario autenticado con OAuth en la tabla usuarios
+        Si el usuario no existe, lo crea. Si existe, devuelve sus datos.
+        
+        Args:
+            id_user: ID del usuario de Supabase Auth
+            email_user: Email del usuario
+            name_user: Nombre del usuario
+            provider: Proveedor OAuth (google, etc)
+        
+        Returns:
+            Datos del usuario con rol
+        """
+        try:
+            supabase = get_supabase_client()
+            
+            # Verificar si el usuario ya existe en la tabla usuarios
+            user_response = supabase.table("usuarios").select("""
+                id_user, name_user, email_user, matricula_user, id_rol,
+                rol!inner(name_rol)
+            """).eq("id_user", id_user).execute()
+            
+            # Si el usuario existe, devolver sus datos
+            if user_response.data and len(user_response.data) > 0:
+                user_data = user_response.data[0]
+                return {
+                    "success": True,
+                    "message": "Usuario sincronizado correctamente",
+                    "user": {
+                        "id_user": user_data["id_user"],
+                        "name_user": user_data["name_user"],
+                        "email_user": user_data["email_user"],
+                        "matricula_user": user_data.get("matricula_user"),
+                        "id_rol": user_data["id_rol"],
+                        "rol": user_data["rol"]["name_rol"] if isinstance(user_data.get("rol"), dict) else ""
+                    }
+                }
+            
+            # Si no existe, crear el usuario con rol 2 (Estudiante por defecto)
+            new_user_data = {
+                "id_user": id_user,
+                "name_user": name_user,
+                "email_user": email_user,
+                "matricula_user": None,  # OAuth users no tienen matrícula
+                "id_rol": 2  # Rol de Estudiante por defecto
+            }
+            
+            insert_response = supabase.table("usuarios").insert(new_user_data).execute()
+            
+            if not insert_response.data:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Error al crear usuario en la base de datos"
+                )
+            
+            # Obtener el usuario recién creado con su rol
+            user_response = supabase.table("usuarios").select("""
+                id_user, name_user, email_user, matricula_user, id_rol,
+                rol!inner(name_rol)
+            """).eq("id_user", id_user).execute()
+            
+            if not user_response.data:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Error al obtener datos del usuario creado"
+                )
+            
+            user_data = user_response.data[0]
+            
+            return {
+                "success": True,
+                "message": "Usuario creado y sincronizado correctamente",
+                "user": {
+                    "id_user": user_data["id_user"],
+                    "name_user": user_data["name_user"],
+                    "email_user": user_data["email_user"],
+                    "matricula_user": user_data.get("matricula_user"),
+                    "id_rol": user_data["id_rol"],
+                    "rol": user_data["rol"]["name_rol"] if isinstance(user_data.get("rol"), dict) else ""
+                }
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error al sincronizar usuario OAuth: {str(e)}"
+            )

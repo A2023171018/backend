@@ -66,6 +66,14 @@ async def test_db():
 # ============================
 # 4. LOGIN
 # ============================
+@app.get("/login")
+async def login_get_not_allowed():
+    """Endpoint informativo - Login requiere POST"""
+    raise HTTPException(
+        status_code=405, 
+        detail="Method Not Allowed: Use POST method to /login with email_user and pass_user in body"
+    )
+
 @app.post("/login", response_model=LoginResponse)
 async def login(credentials: LoginRequest):
     try:
@@ -140,8 +148,38 @@ async def reset_password(data: ResetPasswordRequest):
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 # ============================
-# 7. LOGOUT
+# 7. OAUTH SYNC
 # ============================
+@app.post("/auth/oauth/sync")
+async def oauth_sync(data: OAuthSyncRequest):
+    """
+    Sincroniza un usuario autenticado con OAuth en la tabla usuarios
+    Se llama después del callback de Google/OAuth
+    """
+    try:
+        result = await AuthService.sync_oauth_user(
+            id_user=data.id_user,
+            email_user=data.email_user,
+            name_user=data.name_user,
+            provider=data.provider
+        )
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+# ============================
+# 8. LOGOUT
+# ============================
+@app.get("/logout")
+async def logout_get_not_allowed():
+    """Endpoint informativo - Logout requiere POST"""
+    raise HTTPException(
+        status_code=405,
+        detail="Method Not Allowed: Use POST method to /logout"
+    )
+
 @app.post("/logout")
 async def logout():
     try:
@@ -152,8 +190,26 @@ async def logout():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
+# ============================
+# 9. CHECK AUTH (útil para frontend)
+# ============================
+@app.get("/check-auth")
+async def check_auth(request: Request):
+    """Verifica si hay un token válido en el header"""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="No autorizado")
+    
+    token = auth_header.split(" ")[1]
+    try:
+        supabase = get_supabase_client()
+        user = supabase.auth.get_user(token)
+        return {"authenticated": True, "user": user.user.id if user.user else None}
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
 # ================================================
-# 8. ROUTERS
+# 10. ROUTERS
 # ================================================
 app.include_router(eventos_router)
 app.include_router(usuarios_router)
@@ -164,7 +220,7 @@ app.include_router(asistencias_router)
 app.include_router(horarios_router)
 
 # ================================================
-# 9. OPTIONS catch-all — SIEMPRE al final
+# 11. OPTIONS catch-all — SIEMPRE al final
 # ================================================
 @app.options("/{full_path:path}")
 async def catch_all_options(full_path: str, request: Request):
