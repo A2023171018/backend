@@ -12,6 +12,7 @@ from app.routers.edificios_router import router as edificios_router
 from app.routers.divisiones_router import router as divisiones_router
 from app.routers.asistencias_router import router as asistencias_router
 from app.routers.horarios_router import router as horarios_router
+from app.routers.aulas_router import router as aulas_router
 
 app = FastAPI()
 
@@ -218,6 +219,7 @@ app.include_router(edificios_router)
 app.include_router(divisiones_router)
 app.include_router(asistencias_router)
 app.include_router(horarios_router)
+app.include_router(aulas_router)
 
 # ================================================
 # 11. OPTIONS catch-all — SIEMPRE al final

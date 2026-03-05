@@ -36,7 +36,9 @@ async def get_eventos():
                 """
                 id_event, name_event, timedate_event, status_event,
                 id_profe, id_user, descrip_event, img_event,
-                edificios(id_building, name_building, lat_building, lon_building, code_building)
+                edificios(id_building, name_building, lat_building, lon_building, code_building),
+                profesor(id_profe, nombre_profe),
+                usuarios(id_user, name_user, email_user)
                 """
             ).order("id_event").execute()
         )
@@ -59,7 +61,9 @@ async def get_evento(id_event: int):
                 """
                 id_event, name_event, timedate_event, status_event,
                 id_profe, id_user, descrip_event, img_event,
-                edificios(id_building, name_building, lat_building, lon_building, code_building)
+                edificios(id_building, name_building, lat_building, lon_building, code_building),
+                profesor(id_profe, nombre_profe),
+                usuarios(id_user, name_user, email_user)
                 """
             ).eq("id_event", id_event).single().execute()
         )
